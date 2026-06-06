@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LOVE ORACLE — 深層恋愛診断 (AI DATING ANALYZER)</title>
+  
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;700;900&display=swap');
+
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:#08080d; }
+    .app { min-height:100vh; background:#08080d; color:#f0f0f0; font-family:'Noto Sans JP',sans-serif; position:relative; overflow-x:hidden; }
+    .bg-grid { position:fixed; inset:0; z-index:0; background-image:linear-gradient(rgba(200,30,30,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(200,30,30,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; }
+    .glow { position:fixed; width:700px; height:700px; border-radius:50%; background:radial-gradient(circle,rgba(200,30,30,0.09) 0%,transparent 70%); top:-300px; right:-200px; pointer-events:none; z-index:0; }
+    .wrap { position:relative; z-index:1; max-width:640px; margin:0 auto; padding:36px 18px 100px; }
+
+    .badge { display:inline-block; background:rgba(220,50,50,0.15); border:1px solid rgba(220,50,50,0.4); color:#ff4444; font-size:10px; letter-spacing:3px; padding:4px 12px; border-radius:2px; margin-bottom:14px; }
+    .title { font-family:'Bebas Neue',sans-serif; font-size:clamp(54px,14vw,88px); line-height:0.88; letter-spacing:3px; background:linear-gradient(135deg,#fff 0%,#ff4444 55%,#ff8800 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .subtitle { font-size:12px; color:#666; margin-top:10px; letter-spacing:0.5px; }
+
+    .warn { background:linear-gradient(135deg,rgba(220,30,30,0.1),rgba(180,20,20,0.05)); border:1px solid rgba(220,30,30,0.25); border-left:3px solid #ff3333; border-radius:10px; padding:14px 16px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start; font-size:12px; line-height:1.8; color:#ccc; }
+    .warn strong { color:#ff4444; }
+
+    .card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:20px; margin-bottom:12px; }
+    .slabel { font-size:10px; letter-spacing:3px; color:#ff4444; text-transform:uppercase; margin-bottom:10px; }
+    textarea { width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.09); border-radius:8px; padding:12px 14px; color:#f0f0f0; font-family:'Noto Sans JP',sans-serif; font-size:13px; resize:none; outline:none; transition:border-color 0.2s; }
+    textarea:focus { border-color:rgba(220,50,50,0.5); }
+    textarea::placeholder { color:#333; }
+
+    /* ── photo upload ── */
+    .photo-drop {
+      border:2px dashed rgba(255,255,255,0.12); border-radius:10px;
+      padding:28px 16px; text-align:center; cursor:pointer;
+      transition:all 0.2s; background:rgba(0,0,0,0.25); position:relative;
+    }
+    .photo-drop:hover, .photo-drop.drag { border-color:rgba(220,50,50,0.5); background:rgba(220,50,50,0.05); }
+    .photo-drop-icon { font-size:32px; margin-bottom:8px; }
+    .photo-drop-main { font-size:14px; color:#ccc; margin-bottom:4px; }
+    .photo-drop-sub  { font-size:11px; color:#555; }
+    .photo-drop input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+
+    .photo-preview-wrap { position:relative; border-radius:10px; overflow:hidden; }
+    .photo-preview { width:100%; max-height:280px; object-fit:cover; display:block; border-radius:10px; }
+    .photo-preview-overlay {
+      position:absolute; inset:0; background:rgba(0,0,0,0.55);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; transition:opacity 0.2s; cursor:pointer;
+    }
+    .photo-preview-wrap:hover .photo-preview-overlay { opacity:1; }
+    .photo-preview-overlay span { font-size:12px; color:#fff; letter-spacing:2px; }
+    .photo-clear { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.7); border:1px solid rgba(255,255,255,0.2); color:#fff; font-size:11px; padding:4px 10px; border-radius:20px; cursor:pointer; }
+
+    .go-btn { width:100%; padding:18px; background:linear-gradient(135deg,#b81818,#ff4444); border:none; border-radius:10px; color:#fff; font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:3px; cursor:pointer; transition:all 0.2s; margin-top:6px; }
+    .go-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 35px rgba(200,30,30,0.45); }
+    .go-btn:disabled { opacity:0.35; cursor:not-allowed; }
+
+    /* loading */
+    .loading { text-align:center; padding:80px 24px; animation:up 0.4s ease; }
+    .spinner { width:48px; height:48px; border:2px solid rgba(255,68,68,0.12); border-top-color:#ff4444; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 20px; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .bar-track { height:2px; background:rgba(255,255,255,0.05); border-radius:1px; overflow:hidden; margin-top:22px; }
+    .bar-fill { height:100%; background:#ff4444; animation:bar 2s ease-in-out infinite; }
+    @keyframes bar { 0%{width:0%;margin-left:0} 50%{width:70%;margin-left:0} 100%{width:0%;margin-left:100%} }
+
+    /* rank */
+    .rank-card { background:rgba(255,255,255,0.02); border:1px solid rgba(220,50,50,0.18); border-radius:12px; padding:24px; margin-bottom:14px; animation:up 0.5s ease; text-align:center; }
+    .rank-big { font-family:'Bebas Neue',sans-serif; font-size:58px; letter-spacing:2px; line-height:1; color:#fff; }
+    .rank-big span { font-size:24px; color:#666; }
+    .rank-lbl { font-size:13px; color:#ff4444; font-weight:700; margin:6px 0 18px; }
+    .rank-track { height:10px; border-radius:5px; background:rgba(255,255,255,0.05); overflow:hidden; }
+    .rank-fill { height:100%; border-radius:5px; background:linear-gradient(90deg,#ff2222,#ff8800,#44cc66); transition:width 1.6s cubic-bezier(.22,1,.36,1); }
+    .rank-ptr { position:absolute; top:-7px; transform:translateX(-50%); transition:left 1.6s cubic-bezier(.22,1,.36,1); }
+    .ptr-dot { width:24px; height:24px; border-radius:50%; background:#fff; border:3px solid #ff4444; box-shadow:0 0 14px rgba(255,68,68,0.65); }
+    .ptr-lbl { font-family:'Bebas Neue',sans-serif; font-size:10px; color:#ff4444; letter-spacing:1px; text-align:center; margin-top:2px; }
+    .rank-ends { display:flex; justify-content:space-between; font-size:9px; color:#3a3a3a; letter-spacing:1px; margin-top:30px; }
+
+    /* scores */
+    .scores { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+    .sblock { background:rgba(0,0,0,0.35); border-radius:10px; padding:18px 14px; text-align:center; border:1px solid rgba(255,255,255,0.05); }
+    .slbl2 { font-size:9px; letter-spacing:2px; color:#555; text-transform:uppercase; margin-bottom:8px; }
+    .snum { font-family:'Bebas Neue',sans-serif; font-size:54px; line-height:1; }
+    .snum.lo{color:#ff3333} .snum.mi{color:#ffaa00} .snum.hi{color:#44cc88}
+    .sunit { font-size:20px; opacity:0.5; }
+    .schip { display:inline-block; font-family:'Bebas Neue',sans-serif; font-size:11px; letter-spacing:2px; padding:2px 10px; border-radius:4px; margin-top:6px; }
+
+    .verdict-box { background:rgba(220,30,30,0.07); border:1px solid rgba(220,30,30,0.2); border-radius:10px; padding:16px 18px; margin-bottom:14px; font-size:14px; font-weight:700; color:#ffcccc; line-height:1.7; animation:up 0.5s 0.05s ease both; }
+    .verdict-box::before { content:"💬 総評 "; font-size:10px; letter-spacing:2px; color:#ff4444; display:block; margin-bottom:6px; }
+
+    /* detail cards */
+    .detail-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:22px; margin-bottom:14px; animation:up 0.5s 0.1s ease both; }
+    .detail-card.profile { border-left:3px solid #ff4444; }
+    .detail-card.photo   { border-left:3px solid #ff8800; }
+    .detail-card.message { border-left:3px solid #cc44ff; }
+    .detail-card.overall { border-left:3px solid #4488ff; }
+    .d-title { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+    .d-icon { font-size:18px; }
+    .d-label { font-size:10px; letter-spacing:3px; text-transform:uppercase; }
+    .detail-card.profile .d-label{color:#ff4444} .detail-card.photo .d-label{color:#ff8800} .detail-card.message .d-label{color:#cc44ff} .detail-card.overall .d-label{color:#4488ff}
+    .d-summary { font-size:14px; font-weight:700; color:#fff; margin-bottom:12px; line-height:1.6; }
+    .d-body { font-size:13px; color:#aaa; line-height:1.9; }
+    .d-body strong { color:#ff8888; }
+
+    /* photo result thumbnail */
+    .photo-result-img { width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-bottom:14px; opacity:0.7; }
+
+    .d-points { margin-top:14px; }
+    .d-point { display:flex; gap:10px; padding:10px 0; border-top:1px solid rgba(255,255,255,0.04); font-size:13px; line-height:1.7; color:#bbb; }
+    .d-tag { font-family:'Bebas Neue',sans-serif; font-size:11px; letter-spacing:1px; padding:2px 8px; border-radius:3px; flex-shrink:0; height:fit-content; margin-top:3px; }
+    .d-tag.ng  { background:rgba(255,50,50,0.15);  color:#ff6666; }
+    .d-tag.fix { background:rgba(255,136,0,0.15);   color:#ff9944; }
+
+    /* future */
+    .future-card { background:linear-gradient(135deg,rgba(30,140,80,0.08),rgba(20,100,60,0.04)); border:1px solid rgba(30,160,80,0.18); border-radius:12px; padding:22px; margin-bottom:14px; animation:up 0.5s 0.2s ease both; }
+    .f-title { font-size:10px; letter-spacing:3px; color:#44cc88; text-transform:uppercase; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .f-scores { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+    .f-block { background:rgba(0,0,0,0.3); border-radius:8px; padding:14px; text-align:center; border:1px solid rgba(40,160,80,0.12); }
+    .f-lbl { font-size:9px; letter-spacing:2px; color:#666; margin-bottom:6px; }
+    .f-row { display:flex; align-items:center; justify-content:center; gap:8px; }
+    .f-old { font-family:'Bebas Neue',sans-serif; font-size:28px; color:#ff3333; text-decoration:line-through; opacity:0.6; }
+    .f-new { font-family:'Bebas Neue',sans-serif; font-size:42px; color:#44cc88; }
+    .f-unit { font-size:16px; color:#44cc88; opacity:0.7; }
+    .tl-item { display:flex; gap:12px; padding:8px 0; }
+    .tl-col { display:flex; flex-direction:column; align-items:center; }
+    .tl-dot { width:8px; height:8px; border-radius:50%; background:#44cc88; margin-top:5px; flex-shrink:0; }
+    .tl-line { width:1px; flex:1; background:rgba(40,160,80,0.18); margin-top:4px; }
+    .tl-right { flex:1; padding-bottom:8px; }
+    .tl-time { font-size:9px; letter-spacing:2px; color:#44cc88; margin-bottom:3px; }
+    .tl-text { font-size:13px; color:#bbb; line-height:1.6; }
+
+    .reset-btn { background:transparent; border:1px solid rgba(255,255,255,0.08); color:#555; padding:12px 20px; border-radius:8px; cursor:pointer; font-size:12px; width:100%; transition:all 0.2s; margin-top:8px; }
+    .reset-btn:hover { border-color:rgba(255,255,255,0.15); color:#888; }
+
+    @keyframes up { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+
+  <div id="root"></div>
+
+  <script type="text/transform-comment" data-comment="BabelによるJSX変換用">
+    /* ここにJSXが展開されます */
+  </script>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ── loading messages
+    const MSGS = [
+      "プロフィール文を構文解析中...",
+      "写真をAIが視覚的に解析中...",
+      "表情・背景・清潔感を評価中...",
+      "全国データと照合中...",
+      "勝率・順位を計算中...",
+      "辛口レポートを生成中...",
+    ];
+
+    // ── バリエーション用素材
+    const VERDICT_ANGLES = [
+      "プロフ・写真・メッセージのうち最も足を引っ張っている要素に絞って断言する",
+      "「なぜ女性がスワイプしないか」の心理的理由から入る",
+      "「ライバルと比較して何が劣っているか」の視点で切り込む",
+    ];
+    const PROFILE_ANGLES = [
+      "「自己紹介になってない自己満足文」として斬る",
+      "「読んでも何も残らない文章の構造的問題」を解剖する",
+    ];
+    const PHOTO_ANGLES = [
+      "「第一印象で何点か」を採点するスタイルで具体的に",
+      "「右スワイプするか左スワイプするか0.3秒で決まる理由」から",
+    ];
+    const MESSAGE_ANGLES = [
+      "「女性の受信トレイに来たとして何通目に埋もれるか」で判定",
+      "「返信したいと思わせる要素が何個あるか」を数える",
+    ];
+
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    // ── helpers
+    function useCount(target, dur = 1300) {
+      const [v, setV] = useState(0);
+      useEffect(() => {
+        let raf, t0 = null;
+        const tick = ts => {
+          if (!t0) t0 = ts;
+          const p = Math.min((ts - t0) / dur, 1);
+          setV(Math.round(target * (1 - Math.pow(1 - p, 3))));
+          if (p < 1) raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+      }, [target]);
+      return v;
+    }
+
+    // ── photo uploader
+    function PhotoUploader({ photoPreview, onFile, onClear }) {
+      const [drag, setDrag] = useState(false);
+      const inputRef = useRef();
+
+      function handleFiles(files) {
+        if (!files?.[0]) return;
+        const f = files[0];
+        if (!f.type.startsWith("image/")) return;
+        onFile(f);
+      }
+
+      if (photoPreview) return (
+        <div className="photo-preview-wrap">
+          <img src={photoPreview} className="photo-preview" alt="upload" />
+          <div className="photo-preview-overlay" onClick={() => inputRef.current?.click()}>
+            <span>📷 写真を変更</span>
+          </div>
+          <button className="photo-clear" onClick={e => { e.stopPropagation(); onClear(); }}>✕ 削除</button>
+          <input ref={inputRef} type="file" accept="image/*" style={{ display:"none" }}
+            onChange={e => handleFiles(e.target.files)} />
+        </div>
+      );
+
+      return (
+        <div
+          className={`photo-drop ${drag ? "drag" : ""}`}
+          onDragOver={e => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
+          onClick={() => inputRef.current?.click()}
+        >
+          <div className="photo-drop-icon">📷</div>
+          <div className="photo-drop-main">写真をアップロード</div>
+          <div className="photo-drop-sub">タップして選択、またはドラッグ＆ドロップ<br/>JPG / PNG / HEIC 対応</div>
+          <input ref={inputRef} type="file" accept="image/*"
+            onChange={e => handleFiles(e.target.files)} />
+        </div>
+      );
+    }
+
+    // ── Score
+    function Score({ label, value }) {
+      const v = useCount(value);
+      const cls = value < 30 ? "lo" : value < 60 ? "mi" : "hi";
+      const chip = value < 20 ? { t:"D RANK", bg:"rgba(255,50,50,0.15)", c:"#ff5555" }
+        : value < 40  ? { t:"C RANK", bg:"rgba(255,140,0,0.15)",  c:"#ff8800" }
+        : value < 60  ? { t:"B RANK", bg:"rgba(255,200,0,0.15)",  c:"#ffcc00" }
+        : value < 80  ? { t:"A RANK", bg:"rgba(68,200,100,0.15)", c:"#44cc66" }
+        : { t:"S RANK", bg:"rgba(68,136,255,0.15)", c:"#4488ff" };
+      return (
+        <div className="sblock">
+          <div className="slbl2">{label}</div>
+          <div className={`snum ${cls}`}>{v}<span className="sunit">%</span></div>
+          <div className="schip" style={{ background:chip.bg, color:chip.c }}>{chip.t}</div>
+        </div>
+      );
+    }
+
+    // ── RankBar
+    function RankBar({ percentile }) {
+      const [w, setW] = useState(0);
+      useEffect(() => { const t = setTimeout(() => setW(percentile), 350); return () => clearTimeout(t); }, [percentile]);
+      const lbl = percentile <= 20 ? "圧倒的最下位層" : percentile <= 35 ? "平均以下" : percentile <= 55 ? "平均的" : percentile <= 75 ? "やや有利" : "上位層";
+      return (
+        <div className="rank-card">
+          <div style={{ fontSize:10, letterSpacing:3, color:"#555", textTransform:"uppercase", marginBottom:10 }}>全体順位</div>
+          <div className="rank-big">上位<span> </span>{100 - percentile}<span>%</span></div>
+          <div className="rank-lbl">{lbl}</div>
+          <div style={{ position:"relative" }}>
+            <div className="rank-track"><div className="rank-fill" style={{ width:`${w}%` }}/></div>
+            <div className="rank-ptr" style={{ left:`${w}%` }}>
+              <div className="ptr-dot"/><div className="ptr-lbl">あなた</div>
+            </div>
+            <div className="rank-ends"><span>最下位</span><span>平均</span><span>上位10%</span></div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Future
+    function Future({ matchRate, dateRate }) {
+      const im = Math.min(99, Math.round(matchRate * 1.9 + 18));
+      const id = Math.min(99, Math.round(dateRate * 2.1 + 15));
+      return (
+        <div className="future-card">
+          <div className="f-title"><span>🚀</span> 改善後の未来シミュレーション</div>
+          <div className="f-scores">
+            {[["マッチ率", matchRate, im], ["デート成功率", dateRate, id]].map(([l,o,n]) => (
+              <div className="f-block" key={l}>
+                <div className="f-lbl">{l}</div>
+                <div className="f-row">
+                  <div className="f-old">{o}</div>
+                  <span style={{ color:"#555", fontSize:14 }}>→</span>
+                  <div className="f-new">{n}<span className="f-unit">%</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {[
+            { t:"24時間以内", txt:"プロフ文と写真順序を修正。右スワイプ率が即日改善し始める" },
+            { t:"1週間後",   txt:`週${Math.max(2,Math.round(im/14))}〜${Math.max(4,Math.round(im/9))}人とマッチ。返信速度と温度感が変わる` },
+            { t:"1ヶ月後",   txt:"デートへの流れが自然に作れるようになり、交際の現実味が出てくる" },
+          ].map((item, i, arr) => (
+            <div className="tl-item" key={i}>
+              <div className="tl-col">
+                <div className="tl-dot"/>
+                {i < arr.length-1 && <div className="tl-line"/>}
+              </div>
+              <div className="tl-right">
+                <div className="tl-time">{item.t}</div>
+                <div className="tl-text">{item.txt}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ── DetailCard
+    function DetailCard({ type, icon, label, data, photoPreview }) {
+      if (!data) return null;
+      return (
+        <div className={`detail-card ${type}`}>
+          <div className="d-title"><span className="d-icon">{icon}</span><div className="d-label">{label}</div></div>
+          {type === "photo" && photoPreview && (
+            <img src={photoPreview} className="photo-result-img" alt="your photo" />
+          )}
+          <div className="d-summary">{data.summary}</div>
+          <div className="d-body" dangerouslySetInnerHTML={{ __html: data.body.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>") }} />
+          {data.points?.length > 0 && (
+            <div className="d-points">
+              {data.points.map((p,i) => (
+                <div className="d-point" key={i}>
+                  <span className={`d-tag ${p.type==="ng"?"ng":"fix"}`}>{p.type==="ng"?"問題":"改善"}</span>
+                  <span>{p.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── Main App Component
+    function App() {
+      const [step, setStep] = useState("input");
+      const [profile, setProfile] = useState("");
+      const [message, setMessage] = useState("");
+      const [photoFile, setPhotoFile] = useState(null);
+      const [photoPreview, setPhotoPreview] = useState(null);
+      const [result, setResult] = useState(null);
+      const [resultPreview, setResultPreview] = useState(null);
+      const [msg, setMsg] = useState(MSGS[0]);
+
+      function handlePhotoFile(file) {
+        setPhotoFile(file);
+        setPhotoPreview(URL.createObjectURL(file));
+      }
+      function clearPhoto() { setPhotoFile(null); setPhotoPreview(null); }
+
+      async function analyze() {
+        if (!profile.trim() && !message.trim() && !photoFile) return;
+        setStep("loading");
+        setResultPreview(photoPreview);
+
+        let i = 0;
+        const iv = setInterval(() => { i=(i+1)%MSGS.length; setMsg(MSGS[i]); }, 850);
+
+        // クライアント側のみで稼働させるため、常にモック（ダミーデータ）で分析結果を返す構成にしています
+        setTimeout(() => {
+          clearInterval(iv);
+          const r = () => Math.floor(Math.random() * 20);
+          setResult({
+            matchRate: 22 + r(), dateRate: 11 + Math.floor(r()/2), percentile: 28 + r(),
+            verdict:"プロフ・写真・メッセージの記述バランスに改善ポイントがあります。女性目線を取り入れることで、反応率は大きく変化します。",
+            profile:{
+              summary:"「よくある趣味の羅列」から脱却が必要です",
+              body:"**全男性の多くが同じような趣味の書き方をしています。**エピソードを具体化することで、あなたらしさが伝わる文章構造になります。",
+              points:[
+                {type:"ng",text:"汎用的すぎる趣味の羅列。具体的な光景が見えにくい"},
+                {type:"fix",text:"趣味に具体的な数字やエピソードを入れる（例：どこどこのカフェがお気に入り等）"}
+              ]
+            },
+            photo:{
+              summary:"写真の第一印象がマッチ率の鍵を握ります",
+              body:"**ユーザーは最初のコンマ数秒でスワイプを判断します。**表情の柔らかさ、光の明るさ、そして清潔感を意識した構成がポイントです。",
+              points:[
+                {type:"ng",text:"画質や背景、または光の当たり方を最適化する余地があります"},
+                {type:"fix",text:"自然光の入る屋外などで、ナチュラルな表情で撮り直すのがベスト"}
+              ]
+            },
+            message:{
+              summary: message ? "ファーストメッセージにオリジナリティを" : "メッセージ例なし。ここが次のステップの鍵です",
+              body:"**定型文のようなメッセージはスルーされる傾向にあります。**相手のどこに興味を持ったのかをシンプルに言語化しましょう。",
+              points:[
+                {type:"ng",text:"相手への独自の言及が薄いとテンプレ判定されやすい"},
+                {type:"fix",text:"相手のプロフの具体的な部分に触れ、答えやすい質問を1つ含める"}
+              ]
+            },
+            overall:{
+              summary:"部分的な修正だけでも勝率は数倍に化けます",
+              body:"プロフ・写真・メッセージが噛み合った時、マッチ率は飛躍的に向上します。**まずは最速で効果が出る写真とプロフ文のフックから見直しましょう。**",
+              points:[
+                {type:"fix",text:"最優先：清潔感と明るさを重視したメイン写真に変更する"},
+                {type:"fix",text:"プロフ文に「会話のキッカケになる具体的なエピソード」を1つ足す"},
+                {type:"fix",text:"メッセージの最初の1通目は「相手への共感＋ライトな質問」に固定する"}
+              ]
+            }
+          });
+          setStep("result");
+        }, 3000); // 3秒間ローディング
+      }
+
+      function reset() {
+        setStep("input"); setResult(null);
+        setProfile(""); setMessage("");
+        setPhotoFile(null); setPhotoPreview(null); setResultPreview(null);
+      }
+
+      const canAnalyze = profile.trim() || message.trim() || photoFile;
+
+      return (
+        <div className="app">
+          <div className="bg-grid"/><div className="glow"/>
+          <div className="wrap">
+
+            {/* HEADER */}
+            <div style={{ textAlign:"center", marginBottom:32 }}>
+              <div className="badge">AI DATING ANALYZER</div>
+              <div className="title">WIN<br/>RATE</div>
+              <div className="subtitle">マッチングアプリの「勝率」をAIが容赦なく診断する</div>
+            </div>
+
+            {/* INPUT */}
+            {step === "input" && (<>
+              <div className="warn">
+                <span style={{ fontSize:18, flexShrink:0 }}>🚨</span>
+                <div><strong>現実を直視できる人だけ診断してください。</strong><br/>
+                お世辞はありません。ただし、正直に向き合えば必ず改善できます。</div>
+              </div>
+
+              <div className="card">
+                <div className="slabel">01 — プロフィール文</div>
+                <textarea rows={5} placeholder="現在のプロフィール文をそのまま貼り付け..."
+                  value={profile} onChange={e=>setProfile(e.target.value)}/>
+              </div>
+
+              <div className="card">
+                <div className="slabel">02 — メイン写真（実際にアップロード）</div>
+                <PhotoUploader
+                  photoPreview={photoPreview}
+                  onFile={handlePhotoFile}
+                  onClear={clearPhoto}
+                />
+              </div>
+
+              <div className="card">
+                <div className="slabel">03 — 送ったメッセージ例（任意）</div>
+                <textarea rows={4} placeholder="マッチ後に送ったメッセージを貼り付け..."
+                  value={message} onChange={e=>setMessage(e.target.value)}/>
+              </div>
+
+              <button className="go-btn" onClick={analyze} disabled={!canAnalyze}>
+                現実を見る →
+              </button>
+            </>)}
+
+            {/* LOADING */}
+            {step === "loading" && (
+              <div className="loading">
+                <div className="spinner"/>
+                <div style={{ fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:3,marginBottom:10 }}>ANALYZING</div>
+                <div style={{ color:"#666",fontSize:13,letterSpacing:1 }}>{msg}</div>
+                <div className="bar-track"><div className="bar-fill"/></div>
+              </div>
+            )}
+
+            {/* RESULT */}
+            {step === "result" && result && (<>
+              <RankBar percentile={result.percentile} />
+
+              <div className="scores" style={{ animation:"up 0.5s 0.05s ease both" }}>
+                <Score label="マッチ率" value={result.matchRate} />
+                <Score label="デート成功率" value={result.dateRate} />
+              </div>
+
+              <div className="verdict-box">{result.verdict}</div>
+
+              <DetailCard type="profile" icon="📝" label="プロフィール診断"      data={result.profile} />
+              <DetailCard type="photo"   icon="📷" label="写真診断（AI視覚評価）" data={result.photo} photoPreview={resultPreview} />
+              <DetailCard type="message" icon="💬" label="メッセージ診断"         data={result.message} />
+              <DetailCard type="overall" icon="🔍" label="総合評価・優先アクション" data={result.overall} />
+
+              <Future matchRate={result.matchRate} dateRate={result.dateRate} />
+
+              <button className="reset-btn" onClick={reset}>もう一度診断する</button>
+            </>)}
+
+          </div>
+        </div>
+      );
+    }
+
+    // マウント処理
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
